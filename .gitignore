@@ -1,2 +1,3 @@
 Network Analysis/result/*
-
+EvolveGCN/data/*
+EvolveGCN/__pycache__/*

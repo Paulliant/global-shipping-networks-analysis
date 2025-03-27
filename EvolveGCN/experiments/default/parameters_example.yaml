@@ -8,7 +8,7 @@ sbm50_args:
 
 
 use_cuda: True
-use_logfile: True # If True save the output in a log file, if False in stdout
+use_logfile: False # If True save the output in a log file, if False in stdout
 
 model: egcn_o #HELP: gcn
            #      gruA

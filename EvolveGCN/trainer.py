@@ -77,10 +77,12 @@ class Trainer():
 				eval_test, _ = self.run_epoch(self.splitter.test, e, 'TEST', grad = False)
 
 				if self.args.save_node_embeddings:
-					self.save_node_embs_csv(nodes_embs, self.splitter.train_idx, log_file+'_train_nodeembs.csv.gz')
-					self.save_node_embs_csv(nodes_embs, self.splitter.dev_idx, log_file+'_valid_nodeembs.csv.gz')
-					self.save_node_embs_csv(nodes_embs, self.splitter.test_idx, log_file+'_test_nodeembs.csv.gz')
-
+					if self.tasker.is_static:
+						self.save_node_embs_csv(nodes_embs, self.splitter.train_idx, log_file+'_train_nodeembs.csv.gz')
+						self.save_node_embs_csv(nodes_embs, self.splitter.dev_idx, log_file+'_valid_nodeembs.csv.gz')
+						self.save_node_embs_csv(nodes_embs, self.splitter.test_idx, log_file+'_test_nodeembs.csv.gz')
+					else:
+						self.save_node_embs_csv_dynamic(nodes_embs, range(self.data.num_nodes), f'embedding/nodeembs_epoch{e}.csv')
 
 	def run_epoch(self, split, epoch, set_name, grad):
 		t0 = time.time()
@@ -185,6 +187,7 @@ class Trainer():
 		sample.label_sp = label_sp
 
 		return sample
+		
 
 	def ignore_batch_dim(self,adj):
 		if self.args.task in ["link_pred", "edge_cls"]:
@@ -201,3 +204,13 @@ class Trainer():
 
 		pd.DataFrame(np.array(csv_node_embs)).to_csv(file_name, header=None, index=None, compression='gzip')
 		#print ('Node embs saved in',file_name)
+	
+	def save_node_embs_csv_dynamic(self, nodes_embs, indexes, file_name):
+		csv_node_embs = []
+		for node_id in indexes:
+			row = torch.cat((torch.tensor([node_id]), nodes_embs[node_id].double().cpu())).detach().numpy()
+			csv_node_embs.append(row)
+
+		df = pd.DataFrame(np.array(csv_node_embs))
+
+		df.to_csv(file_name, header=None, index=None)

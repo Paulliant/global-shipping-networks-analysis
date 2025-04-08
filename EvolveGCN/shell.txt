@@ -1,0 +1,3 @@
+python run_exp.py --config_file ./experiments/.yaml
+
+python log_analyzer.py log/.log

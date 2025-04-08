@@ -12,7 +12,7 @@ import uc_irv_mess_dl as ucim
 import auto_syst_dl as aus
 import sbm_dl as sbm
 import reddit_dl as rdt
-
+import gsna_dl as gsna
 
 #taskers
 import link_pred_tasker as lpt
@@ -114,6 +114,8 @@ def build_dataset(args):
 		elif args.data == 'sbm50':
 			args.sbm_args = args.sbm50_args
 		return sbm.sbm_dataset(args)
+	elif args.data.startswith('gsna'):
+		return gsna.gsna_dataset(args)
 	else:
 		raise NotImplementedError('only arxiv has been implemented')
 

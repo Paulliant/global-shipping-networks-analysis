@@ -201,6 +201,8 @@ class Logger():
 
         logging.info (self.set+' Total epoch time: '+ str(((time.monotonic()-self.ep_time))))
 
+        if self.args.target_measure == 'MAP': # eval_measure been covered by f1
+            return epoch_MAP
         return eval_measure
 
     def get_MRR(self,predictions,true_classes, adj ,do_softmax=False):

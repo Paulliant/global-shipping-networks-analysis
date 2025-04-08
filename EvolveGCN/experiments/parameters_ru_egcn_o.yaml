@@ -2,7 +2,7 @@ data: sbm50
 
 sbm50_args:
   folder: ./data/
-  edges_file: dynamic_graph+30.csv
+  edges_file: dynamic_graph_before.csv
   aggr_time: 1 #
   feats_per_node: 3
 
@@ -37,7 +37,7 @@ smart_neg_sampling: True
 seed: 1234
 target_measure: MAP # measure to define the best epoch F1, Precision, Recall, MRR, MAP
 target_class: 1 # Target class to get the measure to define the best epoch (all, 0, 1)
-early_stop_patience: 50
+early_stop_patience: 100
 
 
 eval_after_epochs: 5 # Epoch for the first validation (avoid the first epochs to save time)

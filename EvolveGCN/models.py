@@ -6,6 +6,34 @@ from torch.nn import functional as F
 import torch.nn as nn
 import math
 
+class EmptyModel(torch.nn.Module):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+    def forward(self, *args, **kwargs):
+        return None
+
+class MLP(torch.nn.Module):
+    def __init__(self, args, activation):
+        super().__init__()
+        self.activation = activation
+        self.num_layers = args.num_layers
+
+        self.linear_list = nn.ModuleList()
+        for i in range(self.num_layers):
+            if i == 0:
+                layer = nn.Linear(args.feats_per_node, args.layer_1_feats)
+            else:
+                layer = nn.Linear(args.layer_1_feats, args.layer_2_feats)
+            self.linear_list.append(layer)
+
+    def forward(self, A_list, Nodes_list, nodes_mask_list):
+        node_feats = Nodes_list[-1]  # 使用最后一帧节点特征
+        last_l = self.activation(self.linear_list[0](node_feats))
+        for i in range(1, self.num_layers):
+            last_l = self.activation(self.linear_list[i](last_l))
+        return last_l
+
+
 class Sp_GCN(torch.nn.Module):
     def __init__(self,args,activation):
         super().__init__()
@@ -181,6 +209,12 @@ class Classifier(torch.nn.Module):
             num_feats = args.gcn_parameters['lstm_l2_feats'] * 2
         else:
             num_feats = args.gcn_parameters['layer_2_feats'] * 2
+        
+        if hasattr(args, 'structure_feats_mode'):
+            if args.structure_feats_mode == 'structure_only':
+                num_feats = 2 * args.transform_layer_feats
+            elif args.structure_feats_mode == 'structure_added':
+                num_feats += 2 * args.transform_layer_feats
         print ('CLS num_feats',num_feats)
 
         self.mlp = torch.nn.Sequential(torch.nn.Linear(in_features = num_feats,
@@ -191,3 +225,12 @@ class Classifier(torch.nn.Module):
 
     def forward(self,x):
         return self.mlp(x)
+
+class StructureEncoder(torch.nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(StructureEncoder, self).__init__()
+        self.project = nn.Linear(input_dim, output_dim)
+        self.activation = nn.ReLU()
+
+    def forward(self, struct_feat):
+        return self.activation(self.project(struct_feat))

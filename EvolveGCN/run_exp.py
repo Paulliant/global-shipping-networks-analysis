@@ -135,7 +135,9 @@ def build_tasker(args,dataset):
 def build_gcn(args,tasker):
 	gcn_args = u.Namespace(args.gcn_parameters)
 	gcn_args.feats_per_node = tasker.feats_per_node
-	if args.model == 'gcn':
+	if args.model == 'mlp':
+		return mls.MLP(gcn_args,activation = torch.nn.RReLU()).to(args.device)
+	elif args.model == 'gcn':
 		return mls.Sp_GCN(gcn_args,activation = torch.nn.RReLU()).to(args.device)
 	elif args.model == 'skipgcn':
 		return mls.Sp_Skip_GCN(gcn_args,activation = torch.nn.RReLU()).to(args.device)

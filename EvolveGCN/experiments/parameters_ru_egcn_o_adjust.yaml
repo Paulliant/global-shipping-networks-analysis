@@ -10,13 +10,20 @@ sbm50_args:
 use_cuda: True
 use_logfile: True # If True save the output in a log file, if False in stdout
 
-model: egcn_o #HELP: gcn
+model: lstmB #HELP: gcn
            #      gruA
            #      gruB
            #      egcn_h
            #      egcn_o
 
 task: link_pred   # Help: link_pred, edge_cls or node_cls
+
+structure_feats_mode: structure_added # normal structure_only structure_added
+structure_feats: ['degree_before', 'betweenness_before', 'pagerank_rank_before']
+# structure_feats: ['degree_after', 'betweenness_after', 'pagerank_rank_after']
+transform_layer_feats: 8
+
+downstream_task_mode:  nomral # normal copy_only copy_added
 
 class_weights: [ 0.1, 0.9]
 use_2_hot_node_feats: False

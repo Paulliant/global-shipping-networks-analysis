@@ -4,6 +4,7 @@ import logger
 import time
 import pandas as pd
 import numpy as np
+from models import StructureEncoder
 
 class Trainer():
 	def __init__(self,args, splitter, gcn, classifier, comp_loss, dataset, num_classes):
@@ -76,7 +77,7 @@ class Trainer():
 			if len(self.splitter.test)>0 and eval_valid==best_eval_valid and e>self.args.eval_after_epochs:
 				eval_test, _ = self.run_epoch(self.splitter.test, e, 'TEST', grad = False)
 
-				if self.args.save_node_embeddings:
+				if self.args.save_node_embeddings and nodes_embs is not None:
 					if self.tasker.is_static:
 						self.save_node_embs_csv(nodes_embs, self.splitter.train_idx, log_file+'_train_nodeembs.csv.gz')
 						self.save_node_embs_csv(nodes_embs, self.splitter.dev_idx, log_file+'_valid_nodeembs.csv.gz')
@@ -99,9 +100,9 @@ class Trainer():
 				s = self.prepare_sample(s)
 
 			predictions, nodes_embs = self.predict(s.hist_adj_list,
-												   s.hist_ndFeats_list,
-												   s.label_sp['idx'],
-												   s.node_mask_list)
+												s.hist_ndFeats_list,
+												s.label_sp['idx'],
+												s.node_mask_list)
 
 			loss = self.comp_loss(predictions,s.label_sp['vals'])
 			# print(loss)
@@ -121,6 +122,21 @@ class Trainer():
 		nodes_embs = self.gcn(hist_adj_list,
 							  hist_ndFeats_list,
 							  mask_list)
+		
+		if hasattr(self.args, 'structure_feats_mode') and self.args.structure_feats_mode != 'normal':
+			if not hasattr(self, 'structure_feats'):
+				struct_df = pd.read_csv("data/od_feature.csv")
+				struct_df = struct_df[['label'] + self.args.structure_feats].copy()
+				struct_df = struct_df.set_index('label').sort_index()
+				struct_feats = torch.tensor(struct_df.fillna(0).values, dtype=torch.float32)
+				self.structure_feats = struct_feats.to(self.args.device)
+				self.encoder = StructureEncoder(input_dim=len(self.args.structure_feats), output_dim=self.args.transform_layer_feats).to(self.args.device)
+			
+			self.structure_feats_encoded = self.encoder(self.structure_feats)
+			if self.args.structure_feats_mode == 'structure_only':
+				nodes_embs = self.structure_feats_encoded[:nodes_embs.shape[0]]
+			elif self.args.structure_feats_mode == 'structure_added':
+				nodes_embs = torch.cat([nodes_embs, self.structure_feats_encoded[:nodes_embs.shape[0]]], dim=1)
 
 		predict_batch_size = 100000
 		gather_predictions=[]

@@ -4,6 +4,8 @@ import logger
 import time
 import pandas as pd
 import numpy as np
+import networkx as nx
+from sklearn.preprocessing import MinMaxScaler
 from models import StructureEncoder
 
 class Trainer():
@@ -12,6 +14,11 @@ class Trainer():
 		self.splitter = splitter
 		self.tasker = splitter.tasker
 		self.gcn = gcn
+
+		# 结构信息和其编码网络
+		self.struct_feats_cache = {}
+		self.encoder = StructureEncoder(input_dim=len(self.args.structure_feats), output_dim=self.args.transform_layer_feats).to(self.args.device)
+
 		self.classifier = classifier
 		self.comp_loss = comp_loss
 
@@ -93,7 +100,7 @@ class Trainer():
 		self.logger.log_epoch_start(epoch, len(split), set_name, minibatch_log_interval=log_interval)
 
 		torch.set_grad_enabled(grad)
-		for s in split:
+		for idx, s in enumerate(split):
 			if self.tasker.is_static:
 				s = self.prepare_static_sample(s)
 			else:
@@ -102,7 +109,8 @@ class Trainer():
 			predictions, nodes_embs = self.predict(s.hist_adj_list,
 												s.hist_ndFeats_list,
 												s.label_sp['idx'],
-												s.node_mask_list)
+												s.node_mask_list, 
+												idx)	# split的编号
 
 			loss = self.comp_loss(predictions,s.label_sp['vals'])
 			# print(loss)
@@ -118,25 +126,72 @@ class Trainer():
 
 		return eval_measure, nodes_embs
 
-	def predict(self,hist_adj_list,hist_ndFeats_list,node_indices,mask_list):
+	# 计算结构信息的函数
+	def compute_node_metrics(self, hist_adj_list):
+		# 聚合所有历史邻接矩阵中的边
+		edge_set = set()
+		for adj in hist_adj_list:
+			adj = adj.coalesce()
+			indices = adj.indices().cpu().numpy()
+			for u, v in zip(indices[0], indices[1]):
+				edge_set.add((int(u), int(v)))
+		
+		edges = list(edge_set)
+		df = pd.DataFrame(edges, columns=['source', 'target'])
+		df['weight'] = 1.0  # 所有边统一设为1权重
+
+		# 构造有向图
+		G = nx.from_pandas_edgelist(df, source='source', target='target', edge_attr='weight', create_using=nx.DiGraph())
+
+		nodes = list(G.nodes())
+
+		in_degree = dict(G.in_degree())
+		out_degree = dict(G.out_degree())
+		degree = dict(G.degree())
+		betweenness = nx.betweenness_centrality(G, weight='weight', normalized=True)
+		pagerank = nx.pagerank(G, weight='weight')
+
+		df_metrics = pd.DataFrame({
+			'label': nodes,
+			'in_degree': [in_degree.get(n, 0) for n in nodes],
+			'out_degree': [out_degree.get(n, 0) for n in nodes],
+			'degree': [degree.get(n, 0) for n in nodes],
+			'betweenness': [betweenness.get(n, 0.0) for n in nodes],
+			'pagerank': [pagerank.get(n, 0.0) for n in nodes]
+		})
+
+		numeric_cols = ['in_degree', 'out_degree', 'degree']
+		df_metrics[numeric_cols] = MinMaxScaler().fit_transform(df_metrics[numeric_cols])
+		df_metrics['betweenness_rank'] = df_metrics['betweenness'].rank(ascending=False)
+		df_metrics['pagerank_rank'] = df_metrics['pagerank'].rank(ascending=False)
+
+		df_metrics = df_metrics.set_index('label').sort_index()
+		
+		return df_metrics
+
+	def predict(self,hist_adj_list,hist_ndFeats_list,node_indices,mask_list,idx):
 		nodes_embs = self.gcn(hist_adj_list,
 							  hist_ndFeats_list,
 							  mask_list)
 		
 		if hasattr(self.args, 'structure_feats_mode') and self.args.structure_feats_mode != 'normal':
-			if not hasattr(self, 'structure_feats'):
-				struct_df = pd.read_csv("data/od_feature.csv")
-				struct_df = struct_df[['label'] + self.args.structure_feats].copy()
-				struct_df = struct_df.set_index('label').sort_index()
-				struct_feats = torch.tensor(struct_df.fillna(0).values, dtype=torch.float32)
-				self.structure_feats = struct_feats.to(self.args.device)
-				self.encoder = StructureEncoder(input_dim=len(self.args.structure_feats), output_dim=self.args.transform_layer_feats).to(self.args.device)
 			
-			self.structure_feats_encoded = self.encoder(self.structure_feats)
+			if idx not in self.struct_feats_cache:
+				# 获取静态图的结构特征
+				struct_df = self.compute_node_metrics(hist_adj_list)
+				struct_df = struct_df[self.args.structure_feats]
+				struct_feats = torch.tensor(struct_df.values, dtype=torch.float32).to(self.args.device)
+				self.struct_feats_cache[idx] = struct_feats
+
+			# 通过mlp
+			struct_feats_encoded = self.encoder(self.struct_feats_cache[idx])
+
+			# 只是用结构特征
 			if self.args.structure_feats_mode == 'structure_only':
-				nodes_embs = self.structure_feats_encoded[:nodes_embs.shape[0]]
+				nodes_embs = struct_feats_encoded
+			# 使用嵌入特征和结构特征
 			elif self.args.structure_feats_mode == 'structure_added':
-				nodes_embs = torch.cat([nodes_embs, self.structure_feats_encoded[:nodes_embs.shape[0]]], dim=1)
+				nodes_embs = torch.cat([nodes_embs, struct_feats_encoded], dim=1)
 
 		predict_batch_size = 100000
 		gather_predictions=[]

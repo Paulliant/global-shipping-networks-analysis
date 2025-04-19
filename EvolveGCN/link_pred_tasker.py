@@ -109,6 +109,7 @@ class Link_Pred_Tasker():
 
 
 	def get_sample(self,idx,test, **kwargs):
+		hist_ori_adj_list = []
 		hist_adj_list = []
 		hist_ndFeats_list = []
 		hist_mask_list = []
@@ -127,6 +128,8 @@ class Link_Pred_Tasker():
 			node_mask = tu.get_node_mask(cur_adj, self.data.num_nodes)
 
 			node_feats = self.get_node_feats(cur_adj)
+
+			hist_ori_adj_list.append(cur_adj)
 
 			cur_adj = tu.normalize_adj(adj = cur_adj, num_nodes = self.data.num_nodes)
 
@@ -164,6 +167,7 @@ class Link_Pred_Tasker():
 		label_adj['idx'] = torch.cat([label_adj['idx'],non_exisiting_adj['idx']])
 		label_adj['vals'] = torch.cat([label_adj['vals'],non_exisiting_adj['vals']])
 		return {'idx': idx,
+		  		'hist_ori_adj_list': hist_ori_adj_list,
 				'hist_adj_list': hist_adj_list,
 				'hist_ndFeats_list': hist_ndFeats_list,
 				'label_sp': label_adj,

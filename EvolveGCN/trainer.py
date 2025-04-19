@@ -106,7 +106,9 @@ class Trainer():
 			else:
 				s = self.prepare_sample(s)
 
-			predictions, nodes_embs = self.predict(s.hist_adj_list,
+			predictions, nodes_embs = self.predict(
+												s.hist_ori_adj_list,
+												s.hist_adj_list,
 												s.hist_ndFeats_list,
 												s.label_sp['idx'],
 												s.node_mask_list, 
@@ -129,21 +131,27 @@ class Trainer():
 	# 计算结构信息的函数
 	def compute_node_metrics(self, hist_adj_list):
 		# 聚合所有历史邻接矩阵中的边
-		edge_set = set()
+		edge_weights = {}
 		for adj in hist_adj_list:
 			adj = adj.coalesce()
 			indices = adj.indices().cpu().numpy()
-			for u, v in zip(indices[0], indices[1]):
-				edge_set.add((int(u), int(v)))
+			values = adj.values().cpu().numpy()
+			for u, v, w in zip(indices[0], indices[1], values):
+				key = (int(u), int(v))
+				if key not in edge_weights:
+					edge_weights[key] = 0.0
+				edge_weights[key] += float(w)
 		
-		edges = list(edge_set)
+		# 转为 DataFrame
+		edges = list(edge_weights.keys())
+		weights = list(edge_weights.values())
 		df = pd.DataFrame(edges, columns=['source', 'target'])
-		df['weight'] = 1.0  # 所有边统一设为1权重
+		df['weight'] = weights  # 用真实累加权重填充
 
 		# 构造有向图
 		G = nx.from_pandas_edgelist(df, source='source', target='target', edge_attr='weight', create_using=nx.DiGraph())
 
-		nodes = list(G.nodes())
+		nodes = list(range(0, self.data.num_nodes))
 
 		in_degree = dict(G.in_degree())
 		out_degree = dict(G.out_degree())
@@ -169,7 +177,7 @@ class Trainer():
 		
 		return df_metrics
 
-	def predict(self,hist_adj_list,hist_ndFeats_list,node_indices,mask_list,idx):
+	def predict(self,hist_ori_adj_list,hist_adj_list,hist_ndFeats_list,node_indices,mask_list,idx):
 		nodes_embs = self.gcn(hist_adj_list,
 							  hist_ndFeats_list,
 							  mask_list)
@@ -178,7 +186,7 @@ class Trainer():
 			
 			if idx not in self.struct_feats_cache:
 				# 获取静态图的结构特征
-				struct_df = self.compute_node_metrics(hist_adj_list)
+				struct_df = self.compute_node_metrics(hist_ori_adj_list)
 				struct_df = struct_df[self.args.structure_feats]
 				struct_feats = torch.tensor(struct_df.values, dtype=torch.float32).to(self.args.device)
 				self.struct_feats_cache[idx] = struct_feats
@@ -232,6 +240,10 @@ class Trainer():
 			sample.hist_ndFeats_list[i] = nodes.to(self.args.device)
 			node_mask = sample.node_mask_list[i]
 			sample.node_mask_list[i] = node_mask.to(self.args.device).t() #transposed to have same dimensions as scorer
+
+		for i, adj in enumerate(sample.hist_ori_adj_list):	# 将原始的边也转移到设备上
+			adj = u.sparse_prepare_tensor(adj, torch_size=[self.num_nodes])
+			sample.hist_ori_adj_list[i] = adj.to(self.args.device)
 
 		label_sp = self.ignore_batch_dim(sample.label_sp)
 

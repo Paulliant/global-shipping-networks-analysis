@@ -146,7 +146,7 @@ class Trainer():
 		edges = list(edge_weights.keys())
 		weights = list(edge_weights.values())
 		df = pd.DataFrame(edges, columns=['source', 'target'])
-		df['weight'] = weights  # 用真实累加权重填充
+		df['weight'] = 1.0 # weights  # 用真实累加权重填充
 
 		# 构造有向图
 		G = nx.from_pandas_edgelist(df, source='source', target='target', edge_attr='weight', create_using=nx.DiGraph())

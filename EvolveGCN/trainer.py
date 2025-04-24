@@ -146,32 +146,26 @@ class Trainer():
 		edges = list(edge_weights.keys())
 		weights = list(edge_weights.values())
 		df = pd.DataFrame(edges, columns=['source', 'target'])
-		df['weight'] = 1.0 # weights  # 用真实累加权重填充
+		# df['weight'] = weights  # 用真实累加权重填充
+		df['weight'] = 1.0
 
 		# 构造有向图
 		G = nx.from_pandas_edgelist(df, source='source', target='target', edge_attr='weight', create_using=nx.DiGraph())
 
 		nodes = list(range(0, self.data.num_nodes))
 
-		in_degree = dict(G.in_degree())
-		out_degree = dict(G.out_degree())
-		degree = dict(G.degree())
-		betweenness = nx.betweenness_centrality(G, weight='weight', normalized=True)
-		pagerank = nx.pagerank(G, weight='weight')
-
+		degree = dict(nx.degree_centrality(G))
+		betweenness = dict(nx.betweenness_centrality(G))
+		closeness = dict(nx.closeness_centrality(G))
+		pagerank = dict(nx.pagerank(G))
+		
 		df_metrics = pd.DataFrame({
 			'label': nodes,
-			'in_degree': [in_degree.get(n, 0) for n in nodes],
-			'out_degree': [out_degree.get(n, 0) for n in nodes],
-			'degree': [degree.get(n, 0) for n in nodes],
+			'degree': [degree.get(n, 0.0) for n in nodes],
 			'betweenness': [betweenness.get(n, 0.0) for n in nodes],
+			'closeness': [closeness.get(n, 0.0) for n in nodes],
 			'pagerank': [pagerank.get(n, 0.0) for n in nodes]
 		})
-
-		numeric_cols = ['in_degree', 'out_degree', 'degree']
-		df_metrics[numeric_cols] = MinMaxScaler().fit_transform(df_metrics[numeric_cols])
-		df_metrics['betweenness_rank'] = df_metrics['betweenness'].rank(ascending=False)
-		df_metrics['pagerank_rank'] = df_metrics['pagerank'].rank(ascending=False)
 
 		df_metrics = df_metrics.set_index('label').sort_index()
 		

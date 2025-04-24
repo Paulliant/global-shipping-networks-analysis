@@ -19,7 +19,7 @@ model: lstmB #HELP: gcn
 task: link_pred   # Help: link_pred, edge_cls or node_cls
 
 structure_feats_mode: structure_added # normal structure_only structure_added
-structure_feats: ['degree', 'betweenness', 'pagerank']
+structure_feats: ['degree', 'betweenness', 'closeness', 'pagerank']
 transform_layer_feats: 32
 
 downstream_task_mode:  nomral # normal copy_only copy_added

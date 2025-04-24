@@ -92,6 +92,14 @@ class Trainer():
 					else:
 						self.save_node_embs_csv_dynamic(nodes_embs, range(self.data.num_nodes), f'embedding/nodeembs_epoch{e}.csv')
 
+	def get_l1_loss(self, nodes_embs, path):
+		# 读取 CSV，按第一列（节点 ID）排序，去掉第一列
+		ref_embs = pd.read_csv(path, header=None).sort_values(by=0).iloc[:, 1:].values
+		ref_embs = torch.tensor(ref_embs, dtype=torch.float32, device=nodes_embs.device)
+
+		# L1 loss
+		return torch.nn.functional.l1_loss(nodes_embs, ref_embs)
+
 	def run_epoch(self, split, epoch, set_name, grad):
 		t0 = time.time()
 		log_interval=999
@@ -115,7 +123,10 @@ class Trainer():
 												idx)	# split的编号
 
 			loss = self.comp_loss(predictions,s.label_sp['vals'])
+			if hasattr(self.args, 'l1_loss_mode') and self.args.l1_loss_mode:
+				loss += self.args.l1_loss_weight * self.get_l1_loss(nodes_embs, self.args.l1_loss_file)
 			# print(loss)
+
 			if set_name in ['TEST', 'VALID'] and self.args.task == 'link_pred':
 				self.logger.log_minibatch(predictions, s.label_sp['vals'], loss.detach(), adj = s.label_sp['idx'])
 			else:

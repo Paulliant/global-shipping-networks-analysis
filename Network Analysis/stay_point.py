@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore")
 
 import datetime
 
-name = '01-03__'
+name = 'ru'
 
 data_dictionary_01 = '/mnt/nas/fan/ais_ripe_log/2022/01/POS'
 data_dictionary_02 = '/mnt/nas/fan/ais_ripe_log/2022/02/POS'

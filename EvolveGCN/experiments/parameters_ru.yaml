@@ -2,7 +2,7 @@ data: sbm50
 
 sbm50_args:
   folder: ./data/
-  edges_file: dynamic_graph_after.csv
+  edges_file: dynamic_graph_before.csv
   aggr_time: 1 #
   feats_per_node: 3
 
@@ -24,7 +24,7 @@ transform_layer_feats: 32
 
 downstream_task_mode:  nomral # normal copy_only copy_added
 
-l1_loss_mode: true
+l1_loss_mode: False
 l1_loss_weight: 1000
 l1_loss_file: ./data/nodeembs_before.csv
 

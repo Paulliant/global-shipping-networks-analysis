@@ -11,7 +11,7 @@ from utils.wp_extract_utils import process_file
 import warnings
 warnings.filterwarnings("ignore")
 
-name = 'ru'
+name = 'cv'
 
 stay_points_path = f'result/stay_points/stay_points_{name}.csv'
 port_path = 'data/UpdatedPub150.csv'

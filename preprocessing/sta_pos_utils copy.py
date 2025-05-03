@@ -18,6 +18,8 @@ def sta_mmsi_process_lines(buffer):
     ship_info_19 = []
     ship_info_24 = []
     for line in buffer:
+        if len(line.split('~')) < 5:
+            continue
         msgid = line.split('~')[4]
         info_list = line[:-1].split('~')
         # 只保留mmsi,msgid, ShipType
@@ -209,6 +211,8 @@ def pos_process(unzip_file_path, list_mmsi_keep):
 
 def sta_process_line(line, list_mmsi_keep, columns):
     info = line[:-1].split('~')
+    if len(info) < 5:
+        return None
     msgid = info[4]
     if len(info) < len(columns): 
         info.extend([''] * (len(columns) - len(info)))
@@ -267,7 +271,7 @@ if __name__ == "__main__":
     # directory_pos_path = '/mnt/e/ais_ripe_log/2024/202401/POS'
     directory_sta_path = directory_pos_path[:-3] + 'STA'
     file_sta_paths = get_all_files(directory_sta_path)
-    for source_path in file_sta_paths: # 处理静态文件压缩包
+    for source_path in file_sta_paths[::-1]: # 处理静态文件压缩包
         begin_time = datetime.now()
         print(f'Process: {source_path}. Current Time: {begin_time.strftime("%Y-%m-%d %H:%M:%S")}')
         file_name, destination_path= parse_source_path(source_path)

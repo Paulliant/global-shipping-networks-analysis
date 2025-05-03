@@ -13,11 +13,11 @@ warnings.filterwarnings("ignore")
 
 import datetime
 
-name = 'rs'
+name = 'cv'
 
-data_dictionary_01 = '/mnt/nas/fan/ais_ripe_log/2023/10/POS'
-data_dictionary_02 = '/mnt/nas/fan/ais_ripe_log/2023/11/POS'
-data_dictionary_03 = '/mnt/nas/fan/ais_ripe_log/2023/12/POS'
+data_dictionary_01 = '/mnt/nas/fan/ais_ripe_log/2020/02/POS'
+data_dictionary_02 = '/mnt/nas/fan/ais_ripe_log/2020/03/POS'
+data_dictionary_03 = '/mnt/nas/fan/ais_ripe_log/2020/04/POS'
 # port_path = 'data/ports_info.csv'
 port_path = 'data/UpdatedPub150.csv'
 

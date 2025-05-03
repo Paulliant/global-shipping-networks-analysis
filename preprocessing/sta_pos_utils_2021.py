@@ -18,6 +18,9 @@ def sta_mmsi_process_lines(buffer):
     ship_info_19 = []
     ship_info_24 = []
     for line in buffer:
+        parts = line.rstrip('\n').split('~')
+        if len(parts) < 5:
+            continue
         msgid = line.split('~')[4]
         info_list = line[:-1].split('~')
         # 只保留mmsi,msgid, ShipType
@@ -174,6 +177,8 @@ def pos_process_buffer(buffer, list_mmsi_keep, columns):
 
 def sta_process_line(line, list_mmsi_keep, columns):
     info = line[:-1].split('~')
+    if len(info) < 5:
+        return None
     msgid = info[4]
     if len(info) < len(columns): 
         info.extend([''] * (len(columns) - len(info)))

@@ -210,11 +210,11 @@ class Classifier(torch.nn.Module):
         else:
             num_feats = args.gcn_parameters['layer_2_feats'] * 2
         
-        if hasattr(args, 'structure_feats_mode'):
-            if args.structure_feats_mode == 'structure_only':
-                num_feats = 2 * args.transform_layer_feats
-            elif args.structure_feats_mode == 'structure_added':
-                num_feats += 2 * args.transform_layer_feats
+        # if hasattr(args, 'structure_feats_mode'):
+        #     if args.structure_feats_mode == 'structure_only':
+        #         num_feats = 2 * args.transform_layer_feats
+        #     elif args.structure_feats_mode == 'structure_added':
+        #         num_feats += 2 * args.transform_layer_feats
         print ('CLS num_feats',num_feats)
 
         self.mlp = torch.nn.Sequential(torch.nn.Linear(in_features = num_feats,
@@ -226,11 +226,20 @@ class Classifier(torch.nn.Module):
     def forward(self,x):
         return self.mlp(x)
 
-class StructureEncoder(torch.nn.Module):
+class Encoder(torch.nn.Module):
     def __init__(self, input_dim, output_dim):
-        super(StructureEncoder, self).__init__()
+        super(Encoder, self).__init__()
         self.project = nn.Linear(input_dim, output_dim)
         self.activation = nn.ReLU()
 
-    def forward(self, struct_feat):
-        return self.activation(self.project(struct_feat))
+    def forward(self, x):
+        return self.activation(self.project(x))
+    
+class ResidualEncoder(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(ResidualEncoder, self).__init__()
+        self.project = nn.Linear(input_dim, output_dim)
+        self.activation = nn.ReLU()
+
+    def forward(self, base_vec, add_vec):
+        return base_vec + self.activation(self.project(add_vec))

@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import networkx as nx
 from sklearn.preprocessing import MinMaxScaler
-from models import StructureEncoder
+from models import Encoder, ResidualEncoder
 
 class Trainer():
 	def __init__(self,args, splitter, gcn, classifier, comp_loss, dataset, num_classes):
@@ -14,12 +14,16 @@ class Trainer():
 		self.splitter = splitter
 		self.tasker = splitter.tasker
 		self.gcn = gcn
+		self.classifier = classifier
 
 		# 结构信息和其编码网络
 		self.struct_feats_cache = {}
-		self.encoder = StructureEncoder(input_dim=len(self.args.structure_feats), output_dim=self.args.transform_layer_feats).to(self.args.device)
+		self.encoder1 = Encoder(input_dim=len(self.args.structure_feats), output_dim=self.args.transform_layer_feats).to(self.args.device)
+		if hasattr(self.args, 'structure_feats_mode') and self.args.structure_feats_mode == 'structure_added':
+			self.encoder2 = ResidualEncoder(input_dim=self.args.transform_layer_feats, output_dim=self.args.gcn_parameters['lstm_l2_feats']).to(self.args.device)
+		else:
+			self.encoder2 = Encoder(input_dim=self.args.transform_layer_feats, output_dim=self.args.gcn_parameters['lstm_l2_feats']).to(self.args.device)
 
-		self.classifier = classifier
 		self.comp_loss = comp_loss
 
 		self.num_nodes = dataset.num_nodes
@@ -40,8 +44,14 @@ class Trainer():
 		self.gcn_opt = torch.optim.Adam(params, lr = args.learning_rate)
 		params = self.classifier.parameters()
 		self.classifier_opt = torch.optim.Adam(params, lr = args.learning_rate)
+		params = self.encoder1.parameters()
+		self.encoder1_opt = torch.optim.Adam(params, lr=args.learning_rate)
+		params = self.encoder2.parameters()
+		self.encoder2_opt = torch.optim.Adam(params, lr=args.learning_rate)
 		self.gcn_opt.zero_grad()
 		self.classifier_opt.zero_grad()
+		self.encoder1_opt.zero_grad()
+		self.encoder2_opt.zero_grad()
 
 	def save_checkpoint(self, state, filename='checkpoint.pth.tar'):
 		torch.save(state, filename)
@@ -197,14 +207,13 @@ class Trainer():
 				self.struct_feats_cache[idx] = struct_feats
 
 			# 通过mlp
-			struct_feats_encoded = self.encoder(self.struct_feats_cache[idx])
+			struct_feats_encoded = self.encoder1(self.struct_feats_cache[idx])
 
-			# 只是用结构特征
-			if self.args.structure_feats_mode == 'structure_only':
-				nodes_embs = struct_feats_encoded
 			# 使用嵌入特征和结构特征
-			elif self.args.structure_feats_mode == 'structure_added':
-				nodes_embs = torch.cat([nodes_embs, struct_feats_encoded], dim=1)
+			if self.args.structure_feats_mode == 'structure_added':
+				nodes_embs = self.encoder2(nodes_embs, struct_feats_encoded)
+			elif self.args.structure_feats_mode == 'structure_only':
+				nodes_embs = self.encoder2(struct_feats_encoded)
 
 		predict_batch_size = 100000
 		gather_predictions=[]
@@ -229,10 +238,13 @@ class Trainer():
 		if self.tr_step % self.args.steps_accum_gradients == 0:
 			self.gcn_opt.step()
 			self.classifier_opt.step()
+			self.encoder1_opt.step()
+			self.encoder2_opt.step()
 
 			self.gcn_opt.zero_grad()
 			self.classifier_opt.zero_grad()
-
+			self.encoder1_opt.zero_grad()
+			self.encoder2_opt.zero_grad()
 
 	def prepare_sample(self,sample):
 		sample = u.Namespace(sample)

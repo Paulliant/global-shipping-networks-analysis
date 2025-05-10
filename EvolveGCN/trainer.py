@@ -107,8 +107,11 @@ class Trainer():
 		ref_embs = pd.read_csv(path, header=None).sort_values(by=0).iloc[:, 1:].values
 		ref_embs = torch.tensor(ref_embs, dtype=torch.float32, device=nodes_embs.device)
 
+		# 对齐长度
+		n = min(nodes_embs.size(0), ref_embs.size(0))
+
 		# L1 loss
-		return torch.nn.functional.l1_loss(nodes_embs, ref_embs)
+		return torch.nn.functional.l1_loss(nodes_embs[:n], ref_embs[:n])
 
 	def run_epoch(self, split, epoch, set_name, grad):
 		t0 = time.time()

@@ -1,7 +1,7 @@
 data: sbm50
 
 sbm50_args:
-  folder: ./data/cv/
+  folder: ./data/rs/
   edges_file: dynamic_graph_after.csv
   aggr_time: 1 #
   feats_per_node: 3
@@ -26,7 +26,7 @@ downstream_task_mode:  nomral # normal copy_only copy_added
 
 l1_loss_mode: True
 l1_loss_weight: 1000
-l1_loss_file: ./data/cv/nodeembs_before_lstmB_structure.csv
+l1_loss_file: ./data/rs/nodeembs_before_lstmB_structure.csv
 
 class_weights: [ 0.1, 0.9]
 use_2_hot_node_feats: False
